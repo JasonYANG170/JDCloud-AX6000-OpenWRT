@@ -1,0 +1,168 @@
+name: Build ImmortalWrt for JDCloud RE-CP-03
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      ssh:
+        description: 'SSH connection to Actions (debug)'
+        required: false
+        default: 'false'
+        type: boolean
+      upload_firmware:
+        description: 'Upload firmware to release'
+        required: false
+        default: true
+        type: boolean
+      openwrt_tag:
+        description: 'ImmortalWrt tag/branch (e.g. v24.10.0, openwrt-24.10, master)'
+        required: false
+        default: 'openwrt-24.10'
+        type: string
+  # 每月1号凌晨2点（UTC）自动构建
+  schedule:
+    - cron: '0 2 1 * *'
+
+env:
+  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
+  REPO_BRANCH: openwrt-24.10
+  CONFIG_FILE: configs/jdcloud-recp03.seed
+  CUSTOM_FEEDS: feeds.conf.default
+  DIY_P1_SH: diy-part1.sh
+  DIY_P2_SH: diy-part2.sh
+  UPLOAD_FIRMWARE: true
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Free up disk space
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        set +e
+        docker volume prune -f 2>/dev/null
+        docker image prune -af 2>/dev/null
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc 2>/dev/null
+        sudo apt-get -y purge azure-cli ghc* zulu* hhvm llvm* firefox google* dotnet* powershell 2>/dev/null
+        sudo apt-get clean
+        sudo rm -rf /usr/local/share/boost /opt/hostedtoolcache 2>/dev/null
+        df -h
+
+    - name: Initialize build environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo rm -rf /etc/apt/sources.list.d /usr/local/lib/android /opt/ghc
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib g++-multilib git gnutls-dev gperf haveged help2man intltool jq lib32gcc-s1 libc6-dev-i386 libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool llvm lrzsz msmtp nano ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs unzip vim wget xmlto xxd zlib1g-dev
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "$TZ"
+        sudo mkdir -p /workdir
+        sudo chown $USER:$GROUPS /workdir
+
+    - name: Clone source code
+      working-directory: /workdir
+      run: |
+        df -hT $PWD
+        OPENWRT_TAG="${{ github.event.inputs.openwrt_tag || env.REPO_BRANCH }}"
+        echo "Using tag/branch: $OPENWRT_TAG"
+        git clone --depth 1 --branch "$OPENWRT_TAG" $REPO_URL openwrt
+        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+    - name: Load custom feeds
+      run: |
+        [ -e $CUSTOM_FEEDS ] && mv $CUSTOM_FEEDS openwrt/feeds.conf.default
+
+    - name: Update and install feeds
+      working-directory: /workdir/openwrt
+      run: |
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: Apply DIY part 1 (pre-config)
+      run: |
+        [ -e $DIY_P1_SH ] && chmod +x $DIY_P1_SH && ./$DIY_P1_SH
+
+    - name: Load config file
+      working-directory: /workdir/openwrt
+      run: |
+        [ -e $GITHUB_WORKSPACE/$CONFIG_FILE ] && cp $GITHUB_WORKSPACE/$CONFIG_FILE .config
+        make defconfig
+
+    - name: Apply DIY part 2 (post-config)
+      run: |
+        [ -e $DIY_P2_SH ] && chmod +x $DIY_P2_SH && ./$DIY_P2_SH
+
+    - name: SSH connection to Actions (debug)
+      uses: P3TERX/ssh2actions@v1.0.0
+      if: github.event.inputs.ssh == 'true'
+
+    - name: Download package
+      working-directory: /workdir/openwrt
+      run: |
+        make download -j$(nproc)
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
+
+    - name: Compile firmware
+      working-directory: /workdir/openwrt
+      run: |
+        echo "=== Start Compile ==="
+        echo "Threads: $(nproc)"
+        make -j$(nproc) || make -j1 V=s
+        echo "STATUS=status" >> $GITHUB_ENV
+        echo "DATE=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV
+
+    - name: Organize output
+      id: organize
+      if: env.STATUS == 'status' && !cancelled()
+      run: |
+        cd openwrt/bin/targets/*/*
+        rm -rf packages
+        FIRMWARE=$GITHUB_WORKSPACE/firmware
+        mkdir -p $FIRMWARE
+        cp -rf * $FIRMWARE/
+        echo "FIRMWARE=$FIRMWARE" >> $GITHUB_ENV
+
+    - name: Upload firmware artifact
+      uses: actions/upload-artifact@v4
+      if: env.STATUS == 'status' && !cancelled()
+      with:
+        name: ImmortalWrt_RE-CP-03_${{ env.DATE }}
+        path: ${{ env.FIRMWARE }}
+
+    - name: Generate release tag
+      id: tag
+      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      run: |
+        echo "release_tag=JDCloud-RE-CP-03-${{ env.DATE }}" >> $GITHUB_OUTPUT
+
+    - name: Upload firmware to release
+      uses: softprops/action-gh-release@v2
+      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        files: ${{ env.FIRMWARE }}/*
+
+    - name: Clean up old runs
+      uses: Mattraks/delete-workflow-runs@main
+      if: ${{ !cancelled() }}
+      with:
+        retain_days: 30
+        keep_minimum_runs: 5
+
+    - name: Clean up old releases
+      uses: dev-drprasad/delete-older-releases@v0.3.4
+      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      with:
+        keep_latest: 5
+        delete_tags: true

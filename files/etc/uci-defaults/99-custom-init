@@ -1,0 +1,36 @@
+#!/bin/sh
+# 99-custom-init - 首次启动时执行的自定义初始化脚本
+# 此文件会在固件首次启动时自动执行一次
+#
+# 用法：取消注释你需要的配置项
+
+# 修改 LAN IP
+# uci set network.lan.ipaddr='192.168.68.1'
+# uci commit network
+
+# 修改主机名
+# uci set system.@system[0].hostname='JDCloud-RE-CP-03'
+# uci commit system
+
+# 修改时区
+uci set system.@system[0].timezone='CST-8'
+uci set system.@system[0].zonename='Asia/Shanghai'
+uci commit system
+
+# 修改 NTP 服务器
+uci del system.ntp.server
+uci add_list system.ntp.server='ntp.aliyun.com'
+uci add_list system.ntp.server='cn.ntp.org.cn'
+uci add_list system.ntp.server='time.windows.com'
+uci commit system
+
+# 启用 WiFi（示例，按需修改）
+# uci set wireless.radio0.disabled='0'
+# uci set wireless.radio1.disabled='0'
+# uci set wireless.default_radio0.ssid='MyWiFi-5G'
+# uci set wireless.default_radio1.ssid='MyWiFi-2.4G'
+# uci set wireless.default_radio0.encryption='sae-mixed'
+# uci set wireless.default_radio0.key='YourPassword'
+# uci commit wireless
+
+echo "Custom init completed." > /tmp/custom-init-done

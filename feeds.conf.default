@@ -1,0 +1,19 @@
+# ImmortalWrt 默认 feeds（保持官方源，仅追加自定义）
+# src-git-full luci https://github.com/immortalwrt/luci.git;openwrt-24.10
+# src-git-full packages https://github.com/immortalwrt/packages.git;openwrt-24.10
+
+# === 第三方 feeds ===
+
+# PassWall（翻墙工具）
+src-git-full passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
+src-git-full passwall https://github.com/xiaorouji/openwrt-passwall.git;main
+
+# OpenClash（Clash 客户端）
+src-git-full openclash https://github.com/vernesong/OpenClash.git;master
+
+# ServerChan（微信推送）
+# 注：部分版本已内置 luci-app-serverchan，如无则取消注释
+# src-git-full serverchan https://github.com/tty228/luci-app-serverchan.git;master
+
+# 自定义包仓库
+# src-git-full mypackages https://github.com/YOUR_USERNAME/openwrt-mypackages.git;main
