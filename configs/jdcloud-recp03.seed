@@ -49,8 +49,6 @@ CONFIG_PACKAGE_luci-app-vssr=n
 CONFIG_PACKAGE_luci-app-passwall=y
 CONFIG_PACKAGE_luci-app-passwall2=n
 
-# OpenClash
-CONFIG_PACKAGE_luci-app-openclash=y
 
 # AdGuardHome（DNS 去广告）
 CONFIG_PACKAGE_luci-app-adguardhome=y
