@@ -33,6 +33,9 @@ env:
   UPLOAD_FIRMWARE: true
   TZ: Asia/Shanghai
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
