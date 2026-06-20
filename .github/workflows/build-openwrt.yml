@@ -155,19 +155,3 @@ jobs:
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         files: ${{ env.FIRMWARE }}/*
-
-    - name: Clean up old runs
-      uses: Mattraks/delete-workflow-runs@main
-      if: ${{ !cancelled() }}
-      with:
-        retain_days: 30
-        keep_minimum_runs: 5
-
-    - name: Clean up old releases
-      uses: dev-drprasad/delete-older-releases@v0.3.4
-      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        keep_latest: 5
-        delete_tags: true
