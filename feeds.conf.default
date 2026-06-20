@@ -5,8 +5,8 @@
 # === 第三方 feeds ===
 
 # PassWall（翻墙工具）
-src-git-full passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
-src-git-full passwall https://github.com/xiaorouji/openwrt-passwall.git;main
+src-git-full passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git;main
+src-git-full passwall https://github.com/Openwrt-Passwall/openwrt-passwall.git;main
 
 # OpenClash（Clash 客户端）
 src-git-full openclash https://github.com/vernesong/OpenClash.git;master
