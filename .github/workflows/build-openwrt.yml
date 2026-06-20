@@ -166,6 +166,8 @@ jobs:
     - name: Clean up old releases
       uses: dev-drprasad/delete-older-releases@v0.3.4
       if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         keep_latest: 5
         delete_tags: true
